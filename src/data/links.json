@@ -1,0 +1,83 @@
+{
+  "_comment": "SOURCE OF TRUTH for the link page. Edit by hand here, or use the hidden admin at /area51 (commits this file via GitHub API -> Cloudflare Pages redeploys). Fields per link: title, subtitle, url, icon (SVGL search term), iconUrl (fallback), accent.",
+  "profile": {
+    "name": "Code Spherre",
+    "bio": "Where Code & Community Collide. Elite hub for developers & innovators.",
+    "avatar": "/assets/logo.png",
+    "website": "https://code-spherre.vercel.app"
+  },
+  "links": [
+    {
+      "title": "Discord",
+      "subtitle": "Chat, get help & grow with us",
+      "url": "https://discord.gg/9H3eRN2yU6",
+      "icon": "Discord",
+      "iconUrl": "https://svgl.app/library/discord.svg",
+      "accent": "#5865F2"
+    },
+    {
+      "title": "Website",
+      "subtitle": "Events, learn hub & community",
+      "url": "https://code-spherre.vercel.app",
+      "icon": "",
+      "iconUrl": "/assets/logo.png",
+      "accent": "#3b82f6"
+    },
+    {
+      "title": "GitHub",
+      "subtitle": "Community projects & open source",
+      "url": "https://github.com/CodeSpherreDev",
+      "icon": "GitHub",
+      "iconUrl": "https://svgl.app/library/github_dark.svg",
+      "accent": "#e6edf3"
+    },
+    {
+      "title": "Telegram",
+      "subtitle": "Join the community channel",
+      "url": "https://t.me/code_spherre_official",
+      "icon": "Telegram",
+      "iconUrl": "https://svgl.app/library/telegram.svg",
+      "accent": "#229ED9"
+    },
+    {
+      "title": "Instagram",
+      "subtitle": "Behind the scenes & updates",
+      "url": "https://www.instagram.com/code_spherre",
+      "icon": "Instagram",
+      "iconUrl": "https://svgl.app/library/instagram-icon.svg",
+      "accent": "#E1306C"
+    },
+    {
+      "title": "LinkedIn",
+      "subtitle": "Professional network & announcements",
+      "url": "https://www.linkedin.com/company/code-spherre/",
+      "icon": "LinkedIn",
+      "iconUrl": "https://svgl.app/library/linkedin.svg",
+      "accent": "#0A66C2"
+    },
+    {
+      "title": "YouTube",
+      "subtitle": "Talks, tutorials & event recaps",
+      "url": "https://www.youtube.com/@codespherre",
+      "icon": "YouTube",
+      "iconUrl": "https://svgl.app/library/youtube.svg",
+      "accent": "#FF0000"
+    },
+    {
+      "title": "X (Twitter)",
+      "subtitle": "Quick updates & threads",
+      "url": "https://x.com/codespherre",
+      "icon": "X (formerly Twitter)",
+      "iconUrl": "https://svgl.app/library/x_dark.svg",
+      "accent": "#e7e9ea"
+    },
+    {
+      "title": "Email us",
+      "subtitle": "codespherre.official@gmail.com",
+      "url": "mailto:codespherre.official@gmail.com",
+      "icon": "Gmail",
+      "iconUrl": "https://svgl.app/library/gmail.svg",
+      "accent": "#FBBC04"
+    }
+  ]
+}
