@@ -1,0 +1,58 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+}
+import '../styles/global.css';
+
+const {
+  title = 'Code Spherre — Links',
+  description = 'All Code Spherre links in one place — Discord, GitHub, Telegram, Instagram, LinkedIn, YouTube, X and more. Where Code & Community Collide.',
+  noindex = false,
+} = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#030712" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <!-- TODO: replace with your custom domain once connected (e.g. https://links.yourdomain.com) -->
+    <link rel="canonical" href="https://code-spherre.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="/assets/logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="application/ld+json">
+      {JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Code Spherre',
+        url: 'https://code-spherre.vercel.app',
+        logo: '/assets/logo.png',
+        sameAs: [
+          'https://github.com/CodeSpherreDev',
+          'https://t.me/code_spherre_official',
+          'https://www.instagram.com/code_spherre',
+          'https://www.linkedin.com/company/code-spherre/',
+          'https://discord.gg/9H3eRN2yU6',
+        ],
+      })}
+    </script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

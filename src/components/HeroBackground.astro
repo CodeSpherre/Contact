@@ -1,0 +1,149 @@
+---
+// HeroBackground: faithful port of the main Website Hero backdrop.
+// Letter-glyph canvas texture (same palette/speed as Hero.tsx) + pulsing
+// radial orbs + dot grid + top hairline. Decorative only, zero props.
+// Motion-safe: static single frame under prefers-reduced-motion, pauses
+// when the tab is hidden, DPR capped for perf.
+---
+<div class="bg" aria-hidden="true">
+  <div class="topline"></div>
+  <div class="glitch"><canvas id="glitch-canvas"></canvas></div>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="dots"></div>
+</div>
+
+<script>
+  const canvas = document.getElementById('glitch-canvas') as HTMLCanvasElement | null;
+  if (canvas) {
+    const GLITCH_COLORS = ['#1e293b', '#3b82f6', '#1d4ed8', '#60a5fa'];
+    const GLITCH_SPEED = 80;
+    const FONT_SIZE = 16;
+    const CHAR_W = 10;
+    const CHAR_H = 20;
+    const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$&*()-_+=/[]{};:<>,0123456789'.split('');
+
+    const ctx = canvas.getContext('2d');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let letters: { char: string; color: string; target: string; progress: number }[] = [];
+    let cols = 0;
+    let raf = 0;
+    let lastTick = 0;
+    let running = false;
+
+    const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)] as T;
+
+    const hexToRgb = (hex: string) => {
+      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
+    };
+
+    function draw() {
+      if (!ctx) return;
+      const rect = canvas!.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.font = `${FONT_SIZE}px monospace`;
+      ctx.textBaseline = 'top';
+      for (let i = 0; i < letters.length; i++) {
+        const l = letters[i]!;
+        ctx.fillStyle = l.color;
+        ctx.fillText(l.char, (i % cols) * CHAR_W, Math.floor(i / cols) * CHAR_H);
+      }
+    }
+
+    function seed() {
+      const parent = canvas!.parentElement;
+      if (!parent) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const rect = parent.getBoundingClientRect();
+      canvas!.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas!.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cols = Math.ceil(rect.width / CHAR_W);
+      const rows = Math.ceil(rect.height / CHAR_H);
+      letters = Array.from({ length: cols * rows }, () => ({
+        char: pick(GLYPHS),
+        color: pick(GLITCH_COLORS),
+        target: pick(GLITCH_COLORS),
+        progress: 1,
+      }));
+      draw();
+    }
+
+    function tick(now: number) {
+      if (!running) return;
+      let changed = false;
+      if (now - lastTick >= GLITCH_SPEED && letters.length > 0) {
+        const n = Math.max(1, Math.floor(letters.length * 0.07));
+        for (let k = 0; k < n; k++) {
+          const l = letters[Math.floor(Math.random() * letters.length)]!;
+          l.char = pick(GLYPHS);
+          l.target = pick(GLITCH_COLORS);
+          l.progress = 0;
+        }
+        lastTick = now;
+        changed = true;
+      }
+      for (const l of letters) {
+        if (l.progress < 1) {
+          l.progress = Math.min(1, l.progress + 0.05);
+          const a = hexToRgb(l.color);
+          const b = hexToRgb(l.target);
+          if (a && b) {
+            l.color = `rgb(${Math.round(a.r + (b.r - a.r) * l.progress)},${Math.round(a.g + (b.g - a.g) * l.progress)},${Math.round(a.b + (b.b - a.b) * l.progress)})`;
+            changed = true;
+          }
+        }
+      }
+      if (changed) draw();
+      raf = requestAnimationFrame(tick);
+    }
+
+    function start() {
+      if (running || reduced || !ctx) return;
+      running = true;
+      lastTick = performance.now();
+      raf = requestAnimationFrame(tick);
+    }
+    function stop() {
+      running = false;
+      cancelAnimationFrame(raf);
+    }
+
+    // Init once layout exists; retry briefly if the CSS hasn't settled yet.
+    // Re-seed on window load so the glyph grid matches final fonts/layout.
+    let attempts = 0;
+    function init() {
+      seed();
+      if ((cols === 0 || letters.length === 0) && attempts++ < 120) {
+        requestAnimationFrame(init);
+        return;
+      }
+      start();
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
+    window.addEventListener('load', () => {
+      stop();
+      seed();
+      start();
+    });
+
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        stop();
+        seed();
+        start();
+      }, 150);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stop();
+      else start();
+    });
+  }
+</script>

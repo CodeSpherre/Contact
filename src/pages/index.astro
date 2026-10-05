@@ -1,0 +1,76 @@
+---
+import Base from '../layouts/Base.astro';
+import HeroBackground from '../components/HeroBackground.astro';
+import Profile from '../components/Profile.astro';
+import LinkCard from '../components/LinkCard.astro';
+import ShareButtons from '../components/ShareButtons.astro';
+import Footer from '../components/Footer.astro';
+import doc from '../data/links.json';
+
+const links = doc.links;
+---
+<Base>
+  <HeroBackground />
+  <main class="wrap">
+    <ShareButtons />
+    <Profile profile={doc.profile} />
+
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="filter" type="search" placeholder="Search links…" aria-label="Search links" autocomplete="off" />
+    </div>
+
+    <div class="links" id="links" role="list" aria-label="Links">
+      {links.map((link, i) => <LinkCard link={link} index={i} />)}
+    </div>
+    <div class="empty" id="empty">No links match your search.</div>
+
+    <noscript>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+        {doc.links.map((l) => <a style="color:#fff" href={l.url}>{l.title}</a>)}
+      </div>
+    </noscript>
+
+    <Footer />
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    import { resolveIcon } from '../lib/svgl';
+
+    // Progressive icon upgrade: build ships iconUrl fallbacks; SVGL API swaps in freshest art.
+    document.querySelectorAll<HTMLImageElement>('img[data-icon]').forEach((img) => {
+      const term = (img.getAttribute('data-icon') || '').trim();
+      const tile = img.closest('.tile');
+      const mono = () => {
+        if (!tile) return;
+        const s = document.createElement('span');
+        s.className = 'mono';
+        s.textContent = img.getAttribute('data-fallback') || '?';
+        tile.textContent = '';
+        tile.appendChild(s);
+      };
+      img.addEventListener('error', mono, { once: true });
+      if (!term) return;
+      resolveIcon({ icon: term, iconUrl: img.getAttribute('src') || '' }).then((u) => {
+        if (u && u !== img.getAttribute('src')) img.setAttribute('src', u);
+      });
+    });
+
+    // Client-side search filter.
+    const filter = document.getElementById('filter') as HTMLInputElement | null;
+    const empty = document.getElementById('empty');
+    const apply = () => {
+      const q = (filter?.value || '').trim().toLowerCase();
+      let n = 0;
+      document.querySelectorAll<HTMLElement>('#links .link').forEach((el) => {
+        const hit = !q || (el.getAttribute('data-search') || '').includes(q);
+        (el as HTMLElement).style.display = hit ? '' : 'none';
+        if (hit) n++;
+      });
+      if (empty) empty.style.display = n ? 'none' : 'block';
+    };
+    filter?.addEventListener('input', apply);
+  </script>
+</Base>

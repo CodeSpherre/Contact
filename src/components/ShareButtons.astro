@@ -1,0 +1,37 @@
+---
+// Share + copy-link buttons. Self-contained client behaviour, no props.
+---
+<div class="topbar">
+  <button class="iconbtn" data-share title="Share this page" aria-label="Share this page">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+  </button>
+  <button class="iconbtn" data-copy title="Copy link" aria-label="Copy link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+  </button>
+</div>
+
+<script>
+  function toast(msg: string) {
+    let t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    window.clearTimeout((t as any)._h);
+    (t as any)._h = window.setTimeout(() => t!.classList.remove('show'), 2200);
+  }
+  document.querySelector('[data-share]')?.addEventListener('click', () => {
+    const data = { title: document.title, text: 'Code Spherre — all links', url: location.href };
+    if (navigator.share) navigator.share(data).catch(() => {});
+    else
+      navigator.clipboard.writeText(location.href).then(
+        () => toast('Link copied to clipboard'),
+        () => toast('Copy this URL: ' + location.href),
+      );
+  });
+  document.querySelector('[data-copy]')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(location.href).then(
+      () => toast('Link copied to clipboard'),
+      () => toast('Unable to copy'),
+    );
+  });
+</script>

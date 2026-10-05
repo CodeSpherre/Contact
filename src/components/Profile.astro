@@ -1,0 +1,15 @@
+---
+import type { Profile } from '../lib/types';
+
+interface Props {
+  profile: Profile;
+}
+const { profile } = Astro.props;
+---
+<section class="profile" aria-label="Profile">
+  <div class="avatar-wrap">
+    <img class="avatar" src={profile.avatar} alt={`${profile.name} logo`} fetchpriority="high" />
+  </div>
+  <h1 class="pname">{profile.name}</h1>
+  <p class="pbio">{profile.bio}</p>
+</section>

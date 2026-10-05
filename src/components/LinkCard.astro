@@ -1,0 +1,33 @@
+---
+import type { LinkItem } from '../lib/types';
+
+interface Props {
+  link: LinkItem;
+  index: number;
+}
+const { link, index } = Astro.props;
+const initial = (link.title.trim().charAt(0) || '?').toUpperCase();
+---
+<a
+  class="link"
+  role="listitem"
+  href={link.url}
+  target="_blank"
+  rel="noopener"
+  style={`--accent:${link.accent || '#3b82f6'};animation-delay:${index * 55}ms`}
+  data-search={`${link.title} ${link.subtitle}`.toLowerCase()}
+>
+  <span class="tile">
+    {link.iconUrl ? (
+      <img src={link.iconUrl} alt="" loading="lazy" decoding="async" data-icon={link.icon} data-fallback={initial} />
+    ) : (
+      <span class="mono">{initial}</span>
+    )}
+  </span>
+  <span class="ltext"><b>{link.title}</b>{link.subtitle && <span>{link.subtitle}</span>}</span>
+  <span class="arrow" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 17L17 7M7 7h10v10"></path>
+    </svg>
+  </span>
+</a>
