@@ -1,0 +1,372 @@
+---
+import Base from '../layouts/Base.astro';
+import HeroBackground from '../components/HeroBackground.astro';
+import fallback from '../data/links.json';
+---
+<Base
+  title="Ops — Code Spherre Links"
+  description="Hidden link manager."
+  noindex={true}
+>
+  <HeroBackground />
+  <main class="wrap admin">
+    <p class="crumb"><a href="/">← links</a> · <span>ops</span></p>
+    <h1 class="atitle">Link manager</h1>
+
+    <section class="card" aria-label="Connection">
+      <h2>1 · Source</h2>
+      <div class="grid4">
+        <label>Owner<input id="f-owner" value="CodeSpherre" autocomplete="off" /></label>
+        <label>Repo<input id="f-repo" value="Contact" autocomplete="off" /></label>
+        <label>Branch<input id="f-branch" value="main" autocomplete="off" /></label>
+        <label class="wide">File path<input id="f-path" value="src/data/links.json" autocomplete="off" spellcheck="false" /></label>
+      </div>
+      <label class="wide">GitHub token <span class="hint">(classic or fine-grained, <code>contents:write</code> on this repo — paste, never commit)</span>
+        <input id="f-token" type="password" placeholder="ghp_… / github_pat_…" autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="row">
+        <button class="btn primary" id="btn-load" type="button">Load from GitHub</button>
+        <button class="btn" id="btn-seed" type="button">Use built-in copy</button>
+        <span class="status" id="conn-status" role="status"></span>
+      </div>
+    </section>
+
+    <div class="cols">
+      <div class="col">
+        <section class="card" aria-label="Profile">
+          <h2>2 · Profile</h2>
+          <label>Name<input id="p-name" /></label>
+          <label>Bio<textarea id="p-bio" rows="2"></textarea></label>
+          <div class="grid2">
+            <label>Avatar path<input id="p-avatar" spellcheck="false" /></label>
+            <label>Website<input id="p-website" spellcheck="false" /></label>
+          </div>
+        </section>
+
+        <section class="card" aria-label="Links">
+          <div class="row between">
+            <h2>3 · Links</h2>
+            <button class="btn small" id="btn-add" type="button">+ Add link</button>
+          </div>
+          <div id="link-rows"></div>
+        </section>
+
+        <section class="card" aria-label="Publish">
+          <h2>4 · Publish</h2>
+          <label>Commit message<input id="commit-msg" value="chore: update links via /area51" spellcheck="false" /></label>
+          <div class="row wrap-btns">
+            <button class="btn primary" id="btn-save" type="button">Save to GitHub</button>
+            <button class="btn" id="btn-download" type="button">Download JSON</button>
+            <button class="btn" id="btn-copy" type="button">Copy JSON</button>
+          </div>
+          <span class="status" id="save-status" role="status"></span>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card preview" aria-label="Live preview">
+          <h2>Preview</h2>
+          <p class="hint">Same card styles as the public page. Updates as you type.</p>
+          <div class="links" id="preview-list"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    import { fetchDoc, saveDoc } from '../lib/github';
+    import { resolveIcon } from '../lib/svgl';
+    import type { LinksDoc, LinkItem } from '../lib/types';
+    import seed from '../data/links.json';
+
+    const $ = (id: string) => document.getElementById(id) as HTMLInputElement;
+    const rowsEl = document.getElementById('link-rows')!;
+    const prevList = document.getElementById('preview-list')!;
+    const connStatus = document.getElementById('conn-status')!;
+    const saveStatus = document.getElementById('save-status')!;
+    const toastEl = document.getElementById('toast')!;
+
+    let doc: LinksDoc = structuredClone(seed as LinksDoc);
+    let sha: string | null = null;
+
+    const esc = (s: unknown) =>
+      String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+    function toast(msg: string) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      window.clearTimeout((toastEl as any)._h);
+      (toastEl as any)._h = window.setTimeout(() => toastEl.classList.remove('show'), 2400);
+    }
+    function say(el: HTMLElement, msg: string, cls: '' | 'ok' | 'err') {
+      el.textContent = msg;
+      el.className = 'status ' + cls;
+    }
+
+    // ---- connection prefs (never the token) ----
+    const PREF_KEY = 'cspherre-area51';
+    const TOK_KEY = 'cspherre-token';
+    try {
+      const p = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+      if (p.owner) $('f-owner').value = p.owner;
+      if (p.repo) $('f-repo').value = p.repo;
+      if (p.branch) $('f-branch').value = p.branch;
+      if (p.path) $('f-path').value = p.path;
+    } catch {}
+    try {
+      const t = sessionStorage.getItem(TOK_KEY);
+      if (t) $('f-token').value = t;
+    } catch {}
+    function ref() {
+      const r = {
+        owner: $('f-owner').value.trim(),
+        repo: $('f-repo').value.trim(),
+        branch: $('f-branch').value.trim() || 'main',
+        path: $('f-path').value.trim().replace(/^\//, ''),
+      };
+      try {
+        localStorage.setItem(PREF_KEY, JSON.stringify(r));
+        const tok = $('f-token').value;
+        if (tok) sessionStorage.setItem(TOK_KEY, tok);
+        else sessionStorage.removeItem(TOK_KEY);
+      } catch {}
+      return r;
+    }
+
+    // ---- render ----
+    function renderProfile() {
+      $('p-name').value = doc.profile.name || '';
+      $('p-bio').value = doc.profile.bio || '';
+      $('p-avatar').value = doc.profile.avatar || '';
+      $('p-website').value = doc.profile.website || '';
+    }
+
+    function rowHTML(l: LinkItem, i: number) {
+      return `
+      <div class="head">
+        <img data-prev="${i}" src="${esc(l.iconUrl)}" alt="" />
+        <b>${esc(l.title) || 'Untitled link'}</b>
+        <div class="tools">
+          <button class="mini" data-act="up" data-i="${i}" title="Move up" type="button">↑</button>
+          <button class="mini" data-act="down" data-i="${i}" title="Move down" type="button">↓</button>
+          <button class="mini" data-act="del" data-i="${i}" title="Delete" type="button">✕</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <label>Title<input data-f="title" data-i="${i}" value="${esc(l.title)}" /></label>
+        <label>URL<input data-f="url" data-i="${i}" value="${esc(l.url)}" spellcheck="false" /></label>
+      </div>
+      <label>Subtitle<input data-f="subtitle" data-i="${i}" value="${esc(l.subtitle)}" /></label>
+      <div class="grid2">
+        <label>SVGL term <span class="hint">(live lookup)</span><input data-f="icon" data-i="${i}" value="${esc(l.icon)}" spellcheck="false" /></label>
+        <label>Fallback image URL<input data-f="iconUrl" data-i="${i}" value="${esc(l.iconUrl)}" spellcheck="false" /></label>
+      </div>
+      <div class="accent-wrap">
+        <label>Accent<input type="color" data-f="accent" data-i="${i}" value="${/^#[0-9a-fA-F]{6}$/.test(l.accent) ? l.accent : '#3b82f6'}" /></label>
+        <label>Accent hex<input data-f="accentText" data-i="${i}" value="${esc(l.accent)}" spellcheck="false" /></label>
+      </div>`;
+    }
+
+    function renderRows() {
+      rowsEl.innerHTML = doc.links
+        .map((l, i) => `<div class="lrow" data-row="${i}">${rowHTML(l, i)}</div>`)
+        .join('');
+      doc.links.forEach((l, i) => {
+        const img = rowsEl.querySelector<HTMLImageElement>(`img[data-prev="${i}"]`);
+        if (img) img.addEventListener('error', () => img.removeAttribute('src'), { once: true });
+      });
+    }
+
+    function previewCard(l: LinkItem) {
+      const ch = (l.title.trim().charAt(0) || '?').toUpperCase();
+      const tile = l.iconUrl
+        ? `<img src="${esc(l.iconUrl)}" alt="" loading="lazy" />`
+        : `<span class="mono">${esc(ch)}</span>`;
+      return `<span class="link" style="--accent:${esc(l.accent || '#3b82f6')};animation:none">
+        <span class="tile">${tile}</span>
+        <span class="ltext"><b>${esc(l.title)}</b>${l.subtitle ? `<span>${esc(l.subtitle)}</span>` : ''}</span>
+      </span>`;
+    }
+
+    function renderPreview() {
+      prevList.innerHTML = doc.links.map(previewCard).join('') || '<p class="hint">No links yet — add one.</p>';
+    }
+
+    function renderAll() {
+      renderProfile();
+      renderRows();
+      renderPreview();
+    }
+
+    function readProfileFromForm() {
+      doc.profile.name = $('p-name').value.trim();
+      doc.profile.bio = $('p-bio').value.trim();
+      doc.profile.avatar = $('p-avatar').value.trim();
+      doc.profile.website = $('p-website').value.trim();
+    }
+
+    function serialize(): string {
+      readProfileFromForm();
+      return JSON.stringify({ profile: doc.profile, links: doc.links }, null, 2) + '\n';
+    }
+
+    function validate(): string | null {
+      if (!doc.profile.name) return 'Profile name is empty.';
+      for (let i = 0; i < doc.links.length; i++) {
+        const l = doc.links[i]!;
+        if (!l.title.trim()) return `Link #${i + 1}: title is empty.`;
+        if (!l.url.trim()) return `Link #${i + 1} (${l.title}): URL is empty.`;
+        if (!/^(https?:\/\/|mailto:)/i.test(l.url.trim())) return `Link #${i + 1} (${l.title}): URL must start with https:// or mailto:.`;
+      }
+      return null;
+    }
+
+    // ---- events (delegated) ----
+    rowsEl.addEventListener('input', (e) => {
+      const t = e.target as HTMLInputElement;
+      const i = Number(t.dataset.i);
+      const f = t.dataset.f;
+      if (Number.isNaN(i) || !f || !doc.links[i]) return;
+      if (f === 'accentText') {
+        doc.links[i]!.accent = t.value.trim();
+        const color = rowsEl.querySelector<HTMLInputElement>(`input[data-f="accent"][data-i="${i}"]`);
+        if (color && /^#[0-9a-fA-F]{6}$/.test(t.value.trim())) color.value = t.value.trim();
+      } else if (f === 'accent') {
+        doc.links[i]!.accent = t.value;
+        const txt = rowsEl.querySelector<HTMLInputElement>(`input[data-f="accentText"][data-i="${i}"]`);
+        if (txt) txt.value = t.value;
+      } else if (f === 'title' || f === 'subtitle' || f === 'url' || f === 'icon' || f === 'iconUrl') {
+        (doc.links[i] as any)[f] = t.value;
+      }
+      if (f === 'title' || f === 'subtitle' || f === 'accent' || f === 'accentText' || f === 'iconUrl') renderPreview();
+    });
+
+    rowsEl.addEventListener('change', (e) => {
+      const t = e.target as HTMLInputElement;
+      const i = Number(t.dataset.i);
+      if (t.dataset.f === 'icon' && doc.links[i]) {
+        const idx = i;
+        resolveIcon(doc.links[idx]!).then((u) => {
+          const img = rowsEl.querySelector<HTMLImageElement>(`img[data-prev="${idx}"]`);
+          if (img && u) img.src = u;
+          const urlInput = rowsEl.querySelector<HTMLInputElement>(`input[data-f="iconUrl"][data-i="${idx}"]`);
+          if (urlInput && u && !urlInput.value.trim()) {
+            urlInput.value = u;
+            doc.links[idx]!.iconUrl = u;
+            renderPreview();
+          }
+        });
+      }
+    });
+
+    rowsEl.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest('button[data-act]') as HTMLButtonElement | null;
+      if (!b) return;
+      const i = Number(b.dataset.i);
+      if (b.dataset.act === 'del' && doc.links[i]) {
+        if (!confirm(`Delete "${doc.links[i]!.title}"?`)) return;
+        doc.links.splice(i, 1);
+      } else if (b.dataset.act === 'up' && i > 0) {
+        [doc.links[i - 1], doc.links[i]] = [doc.links[i]!, doc.links[i - 1]!];
+      } else if (b.dataset.act === 'down' && i < doc.links.length - 1) {
+        [doc.links[i + 1], doc.links[i]] = [doc.links[i]!, doc.links[i + 1]!];
+      }
+      renderRows();
+      renderPreview();
+    });
+
+    ['p-name', 'p-bio', 'p-avatar', 'p-website'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', () => {
+        readProfileFromForm();
+      });
+    });
+
+    document.getElementById('btn-add')?.addEventListener('click', () => {
+      doc.links.push({ title: 'New link', subtitle: '', url: 'https://', icon: '', iconUrl: '', accent: '#3b82f6' });
+      renderRows();
+      renderPreview();
+      rowsEl.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    document.getElementById('btn-seed')?.addEventListener('click', () => {
+      doc = structuredClone(seed as LinksDoc);
+      sha = null;
+      renderAll();
+      say(connStatus, 'Loaded built-in copy. Press Save to push it.', 'ok');
+    });
+
+    document.getElementById('btn-load')?.addEventListener('click', async () => {
+      const r = ref();
+      say(connStatus, 'Loading…', '');
+      try {
+        const { text, sha: s } = await fetchDoc(r, $('f-token').value.trim() || undefined);
+        const parsed = JSON.parse(text) as LinksDoc;
+        if (!parsed.profile || !Array.isArray(parsed.links)) throw new Error('File is not a links doc.');
+        doc = parsed;
+        sha = s;
+        renderAll();
+        say(connStatus, `Loaded ${doc.links.length} links (sha ${s.slice(0, 7)}).`, 'ok');
+      } catch (err) {
+        say(connStatus, err instanceof Error ? err.message : 'Load failed.', 'err');
+      }
+    });
+
+    document.getElementById('btn-download')?.addEventListener('click', () => {
+      const err = validate();
+      if (err) {
+        toast(err);
+        return;
+      }
+      const blob = new Blob([serialize()], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'links.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    document.getElementById('btn-copy')?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(serialize());
+        toast('JSON copied to clipboard');
+      } catch {
+        toast('Unable to copy');
+      }
+    });
+
+    document.getElementById('btn-save')?.addEventListener('click', async () => {
+      const err = validate();
+      if (err) {
+        say(saveStatus, err, 'err');
+        return;
+      }
+      const token = $('f-token').value.trim();
+      if (!token) {
+        say(saveStatus, 'Paste a GitHub token first (contents:write on this repo).', 'err');
+        return;
+      }
+      const r = ref();
+      say(saveStatus, 'Saving…', '');
+      try {
+        let currentSha = sha;
+        if (!currentSha) {
+          const loaded = await fetchDoc(r, token);
+          currentSha = loaded.sha;
+        }
+        const msg = ($('commit-msg') as HTMLInputElement).value.trim() || 'chore: update links via /area51';
+        const { commitUrl } = await saveDoc(r, token, serialize(), currentSha!, msg);
+        const reloaded = await fetchDoc(r, token);
+        sha = reloaded.sha;
+        say(saveStatus, 'Saved — Cloudflare Pages is redeploying (∼1 min).', 'ok');
+        toast(commitUrl ? 'Saved! Opening commit…' : 'Saved!');
+        if (commitUrl) window.open(commitUrl, '_blank', 'noopener');
+      } catch (e) {
+        say(saveStatus, e instanceof Error ? e.message : 'Save failed.', 'err');
+      }
+    });
+
+    renderAll();
+  </script>
+</Base>
